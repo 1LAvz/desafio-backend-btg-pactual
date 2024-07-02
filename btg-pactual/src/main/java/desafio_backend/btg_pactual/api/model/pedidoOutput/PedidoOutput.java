@@ -11,7 +11,7 @@ import java.util.List;
 @Builder
 @Getter
 @Setter
-public class PedidoInput {
+public class PedidoOutput {
     @NotNull
     private Long codigoPedido;
 
@@ -20,5 +20,5 @@ public class PedidoInput {
 
     @Valid
     @NotNull
-    private List<ItemPedidoInput> itens;
+    private List<ItemPedidoOutput> itens;
 }

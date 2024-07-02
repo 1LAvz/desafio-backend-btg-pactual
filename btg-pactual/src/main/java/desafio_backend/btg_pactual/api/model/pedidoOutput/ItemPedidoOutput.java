@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 @Builder
 @Getter
 @Setter
-public class ItemPedidoInput {
+public class ItemPedidoOutput {
     @NotNull
     private Long quantidade;
     @NotNull
