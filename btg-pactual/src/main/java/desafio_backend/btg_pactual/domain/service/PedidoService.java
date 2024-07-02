@@ -1,16 +1,10 @@
 package desafio_backend.btg_pactual.domain.service;
 
-import desafio_backend.btg_pactual.api.model.pedidoInput.PedidoInput;
-import desafio_backend.btg_pactual.api.model.pedidoOutput.ItemPedidoOutput;
-import desafio_backend.btg_pactual.api.model.pedidoOutput.PedidoOutput;
-import desafio_backend.btg_pactual.domain.model.Cliente;
-import desafio_backend.btg_pactual.domain.model.ItemPedido;
+import desafio_backend.btg_pactual.api.dto.PedidoDto;
+import desafio_backend.btg_pactual.domain.exception.PedidoNaoEncontradoException;
+import desafio_backend.btg_pactual.domain.mapper.PedidoMapper;
 import desafio_backend.btg_pactual.domain.model.Pedido;
-import desafio_backend.btg_pactual.domain.model.Produto;
-import desafio_backend.btg_pactual.domain.repository.ClienteRepository;
-import desafio_backend.btg_pactual.domain.repository.ItemPedidoRepository;
 import desafio_backend.btg_pactual.domain.repository.PedidoRepository;
-import desafio_backend.btg_pactual.domain.repository.ProdutoRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,91 +21,47 @@ public class PedidoService {
     private PedidoRepository pedidoRepository;
 
     @Autowired
-    private ClienteRepository clienteRepository;
+    private PedidoMapper pedidoMapper;
 
-    @Autowired
-    private ProdutoRepository produtoRepository;
-
-    @Autowired
-    private ItemPedidoRepository itemPedidoRepository;
-
-    public BigDecimal valorTotalPedido(Long pedidoId) {
-        Pedido pedido = pedidoRepository.findById(pedidoId).get();
-
-        BigDecimal soma = new BigDecimal(0);
-
-        pedido.getItens().forEach(item -> {
-            BigDecimal quantidadeProduto = new BigDecimal(item.getQuantidade());
-            soma.add(item.getProduto().getPreco().multiply(quantidadeProduto));
-        });
-
-        return soma;
+    @Transactional
+    public Pedido salvar(Pedido pedido) {
+        return pedidoRepository.save(pedido);
     }
 
     @Transactional
-    public PedidoOutput salvar(PedidoInput pedidoInput) {
+    public PedidoDto salvar(PedidoDto pedidoInput) {
+        Pedido pedido = pedidoMapper.convertToModel(pedidoInput);
 
-        Cliente cliente = Cliente.builder()
-                .codigo(pedidoInput.getCodigoCliente())
-                .nome("defaul-name")
-                .build();
+        pedido.getItens().forEach(item -> item.setPedido(pedido));
 
-        cliente = clienteRepository.save(cliente);
-
-        List<ItemPedido> itensPedido = new ArrayList<>();
-        pedidoInput.getItens().forEach(item -> {
-            Produto produto = Produto.builder()
-                    .nome(item.getProduto())
-                    .preco(item.getPreco())
-                    .build();
-
-            produto = produtoRepository.save(produto);
-
-            ItemPedido itemPedido = ItemPedido.builder()
-                    .quantidade(item.getQuantidade())
-                    .produto(produto)
-                    .build();
-
-            itemPedido = itemPedidoRepository.save(itemPedido);
-            itensPedido.add(itemPedido);
-        });
-
-        Pedido pedido = Pedido.builder()
-                .codigo(pedidoInput.getCodigoPedido())
-                .cliente(cliente)
-                .itens(itensPedido)
-                .build();
-
-        itensPedido.forEach(itemPedido -> {
-            itemPedido.setPedido(pedido);
-        });
-
-        return converterParaModeloRepresentacao(pedidoRepository.save(pedido));
+        Pedido pedidoSalvo = salvar(pedido);
+        return pedidoMapper.convertToDto(pedidoSalvo);
     }
 
-    public PedidoOutput converterParaModeloRepresentacao(Pedido pedido) {
+    public List<PedidoDto> todosPedidosPor(Long clienteCodigo) {
+        Optional<List<Pedido>> pedidos = pedidoRepository.findPedidosByCodigoCliente(clienteCodigo);
 
-        return PedidoOutput.builder()
-                .codigoPedido(pedido.getCodigo())
-                .codigoCliente(pedido.getCliente().getCodigo())
-                .itens(getItensPedidoOutPut(pedido.getItens()))
-                .build();
+        if (pedidos.isPresent()) {
+            return pedidoMapper.convertToDto(pedidos.get());
+        }
+
+        return new ArrayList<>();
     }
 
-    public List<ItemPedidoOutput> getItensPedidoOutPut(List<ItemPedido> itensPedido) {
-        List<ItemPedidoOutput> itensPedidoOutput = new ArrayList<>();
+    public BigDecimal valorTotalPedido(Long pedidoId) {
+        Pedido pedido = buscarOuFalhar(pedidoId);
 
-        itensPedido.forEach(itemPedido -> {
-            ItemPedidoOutput itemPedidoOutput = ItemPedidoOutput.builder()
-                    .quantidade(itemPedido.getQuantidade())
-                    .produto(itemPedido.getProduto().getNome())
-                    .preco(itemPedido.getProduto().getPreco())
-                    .build();
-
-            itensPedidoOutput.add(itemPedidoOutput);
-        });
-
-        return itensPedidoOutput;
+        return pedido.getItens().stream()
+                .map(item -> new BigDecimal(item.getQuantidade()).multiply(item.getPreco()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    public Long quantidadeDePedidosPor(Long clienteCodigo) {
+        return pedidoRepository.countPedidosByCodigoCliente(clienteCodigo);
+    }
+
+    public Pedido buscarOuFalhar(Long pedidoId) {
+        return pedidoRepository.findById(pedidoId)
+                .orElseThrow(() -> new PedidoNaoEncontradoException("Pedido não encontrado"));
+    }
 }

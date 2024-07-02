@@ -1,8 +1,6 @@
 package desafio_backend.btg_pactual.api.controller;
 
-import desafio_backend.btg_pactual.api.model.pedidoInput.PedidoInput;
-import desafio_backend.btg_pactual.api.model.pedidoOutput.PedidoOutput;
-import desafio_backend.btg_pactual.domain.model.Pedido;
+import desafio_backend.btg_pactual.api.dto.PedidoDto;
 import desafio_backend.btg_pactual.domain.service.PedidoService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,16 +23,15 @@ public class PedidoController {
     private PedidoService pedidoService;
 
     @PostMapping()
-    public ResponseEntity<PedidoOutput> adicionar(@RequestBody @Valid PedidoInput pedidoInput) {
-        PedidoOutput pedido = pedidoService.salvar(pedidoInput);
-
+    public ResponseEntity<PedidoDto> adicionar(@RequestBody @Valid PedidoDto pedidoInput) {
+        PedidoDto pedido = pedidoService.salvar(pedidoInput);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(pedido);
     }
 
-    @GetMapping("/valorTotal/{pedidoId}")
-    public BigDecimal valorTotalPedido(@PathVariable Long pedidoId) {
-        return pedidoService.valorTotalPedido(pedidoId);
+    @GetMapping("/{codigoPedido}/valor-total")
+    public BigDecimal valorTotalPedido(@PathVariable Long codigoPedido) {
+        return pedidoService.valorTotalPedido(codigoPedido);
     }
 }
